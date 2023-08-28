@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 	defer file.Close()
-	_, err = file.Write(resp)
+	_, err = file.WriteString(fmt.Sprintf("Dólar: %s", string(resp)))
 	if err != nil {
 		panic(err)
 	}

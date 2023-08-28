@@ -2,10 +2,30 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
+
+type CotacaoDolarReal struct {
+	USDBRL `json:"USDBRL"`
+}
+
+type USDBRL struct {
+	Code       string `json:"code"`
+	Codein     string `json:"codein"`
+	Name       string `json:"name"`
+	High       string `json:"high"`
+	Low        string `json:"low"`
+	VarBid     string `json:"varBid"`
+	PctChange  string `json:"pctChange"`
+	Bid        string `json:"bid"`
+	Ask        string `json:"ask"`
+	Timestamp  string `json:"timestamp"`
+	CreateDate string `json:"create_date"`
+}
 
 func main() {
 	http.HandleFunc("/cotacao", CotacaoHandler)
@@ -18,21 +38,23 @@ func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	cotacao, err := Cotacao(ctx)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	select {
+	case <-time.After(time.Millisecond * 100):
+		cotacao, err := Cotacao(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(cotacao.USDBRL.Bid)
+	case <-ctx.Done():
+		log.Println("Tempo limite atingido.")
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(cotacao)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	// TODO: Salvar no BD
 }
 
-func Cotacao(ctx context.Context) ([]byte, error) {
+func Cotacao(ctx context.Context) (*CotacaoDolarReal, error) {
 	log.Println("Request iniciada.")
 	defer log.Println("Request finalizada")
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://economia.awesomeapi.com.br/json/last/USD-BRL", nil)
@@ -48,5 +70,10 @@ func Cotacao(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return body, nil
+	var data CotacaoDolarReal
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, err
+	}
+	return &data, nil
 }
