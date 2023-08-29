@@ -37,33 +37,38 @@ func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	ctx := r.Context()
-	select {
-	case <-time.After(time.Millisecond * 100):
-		cotacao, err := Cotacao(ctx)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(cotacao.USDBRL.Bid)
-	case <-ctx.Done():
-		log.Println("Tempo limite atingido.")
+	cotacao, err := Cotacao()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	// TODO: Salvar no BD
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(cotacao.USDBRL.Bid)
+
+	GravarNoBancoDeDados(cotacao)
 }
 
-func Cotacao(ctx context.Context) (*CotacaoDolarReal, error) {
+func Cotacao() (*CotacaoDolarReal, error) {
 	log.Println("Request iniciada.")
 	defer log.Println("Request finalizada")
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://economia.awesomeapi.com.br/json/last/USD-BRL", nil)
+
 	if err != nil {
 		return nil, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		select {
+		case <-ctx.Done():
+			log.Println("Tempo limite atingido ao realizar consulta")
+			return nil, err
+		default:
+			return nil, err
+		}
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -76,4 +81,9 @@ func Cotacao(ctx context.Context) (*CotacaoDolarReal, error) {
 		return nil, err
 	}
 	return &data, nil
+
+}
+
+func GravarNoBancoDeDados(data *CotacaoDolarReal) {
+	println("TODO..")
 }

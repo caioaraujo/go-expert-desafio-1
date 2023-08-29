@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -18,7 +19,13 @@ func main() {
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		panic(err)
+		select {
+		case <-ctx.Done():
+			log.Println("Tempo limite atingido no client")
+		default:
+			panic(err)
+		}
+		return
 	}
 	defer res.Body.Close()
 	resp, err := io.ReadAll(res.Body)
