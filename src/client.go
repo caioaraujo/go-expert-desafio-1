@@ -27,6 +27,10 @@ func main() {
 		}
 		return
 	}
+	if res.StatusCode != http.StatusOK {
+		log.Println("Erro no servidor!")
+		return
+	}
 	defer res.Body.Close()
 	resp, err := io.ReadAll(res.Body)
 	if err != nil {

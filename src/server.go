@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +17,7 @@ type CotacaoDolarReal struct {
 }
 
 type USDBRL struct {
+	ID         int    `gorm:"primaryKey"`
 	Code       string `json:"code"`
 	Codein     string `json:"codein"`
 	Name       string `json:"name"`
@@ -42,11 +46,15 @@ func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	err = GravarNoBancoDeDados(cotacao)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(cotacao.USDBRL.Bid)
 
-	GravarNoBancoDeDados(cotacao)
 }
 
 func Cotacao() (*CotacaoDolarReal, error) {
@@ -84,6 +92,30 @@ func Cotacao() (*CotacaoDolarReal, error) {
 
 }
 
-func GravarNoBancoDeDados(data *CotacaoDolarReal) {
-	println("TODO..")
+func GravarNoBancoDeDados(data *CotacaoDolarReal) error {
+	log.Println("Salvando dados na base...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	db, err := gorm.Open(sqlite.Open("cotacao.db"), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+	db.AutoMigrate(&USDBRL{})
+	db.WithContext(ctx).Create(&data.USDBRL)
+
+	select {
+	case <-ctx.Done():
+		log.Println("Tempo limite atingido ao realizar inserção na base de dados")
+		return errors.New("timeout reached")
+	default:
+		log.Println("Dados salvos com sucesso")
+		return nil
+	}
+
+	// select all
+	//var cotacaoDolar []USDBRL
+	//db.Find(&cotacaoDolar)
+	//for _, c := range cotacaoDolar {
+	//	fmt.Println(c)
+	//}
 }
