@@ -11,6 +11,6 @@ Na raíz do projeto: `go mod tidy`
 
 ## Execução
 ### Server
-Na raíz do projeto: `go run src/server.go`
+Na raíz do projeto: `go run src/server/server.go`
 ### Client
-Na raíz do projeto: `go run src/client.go`
+Na raíz do projeto: `go run src/client/client.go`
